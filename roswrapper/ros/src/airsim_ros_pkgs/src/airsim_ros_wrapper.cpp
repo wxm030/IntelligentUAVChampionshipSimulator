@@ -1522,28 +1522,27 @@ void AirsimROSWrapper::img_response_stereo_timer_cb(const ros::TimerEvent &event
         const std::vector<ImageResponse>& img_response = airsim_client_images_.simGetImages(stereo_request_, airsim_img_request_vehicle_name_pair_vec_[0].second);
         if (img_response.size() == stereo_request_.size()) {
             ros::Time curr_ros_time = ros::Time::now();
+            ros::Time left_timestamp = airsim_timestamp_to_ros(img_response[0].time_stamp);
             cv::Mat left_rgb_img, right_rgb_img;
             int img_rows, img_cols;
-            ros::Time timestamp;
             for (const auto& curr_img_response : img_response) {
                 if (strcmp(curr_img_response.camera_name.c_str(), "front_left")==0)
                 {
                     front_left_camera_info_.header.stamp =  airsim_timestamp_to_ros(curr_img_response.time_stamp);
                     front_left_cam_info_pub_.publish(front_left_camera_info_);
                     sensor_msgs::ImagePtr msg_ptr = get_img_msg_from_response(curr_img_response,
-                                                                              curr_ros_time,
+                                                                              left_timestamp,
                                                                               curr_img_response.camera_name + "_optical");
                     front_left_pub_.publish(msg_ptr);
                     img_rows = front_left_camera_info_.height;
                     img_cols = front_left_camera_info_.width;
                     cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg_ptr, sensor_msgs::image_encodings::TYPE_8UC3);
                     left_rgb_img = cv_ptr->image;
-                    timestamp = front_left_camera_info_.header.stamp;
                 }else{
                     front_right_camera_info_.header.stamp =  airsim_timestamp_to_ros(curr_img_response.time_stamp);
                     front_right_cam_info_pub_.publish(front_right_camera_info_);
                     sensor_msgs::ImagePtr msg_ptr = get_img_msg_from_response(curr_img_response,
-                                                                              curr_ros_time,
+                                                                              left_timestamp,
                                                                               curr_img_response.camera_name + "_optical");
                     front_right_pub_.publish(msg_ptr);
                     cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg_ptr, sensor_msgs::image_encodings::TYPE_8UC3);
@@ -1556,7 +1555,7 @@ void AirsimROSWrapper::img_response_stereo_timer_cb(const ros::TimerEvent &event
             sensor_msgs::ImagePtr sgm_depth_msg =
                 cv_bridge::CvImage(std_msgs::Header(), "mono16", depth_uint16)
                     .toImageMsg();
-            sgm_depth_msg->header.stamp = timestamp;
+            sgm_depth_msg->header.stamp = left_timestamp;
             sgm_depth_pub_.publish(sgm_depth_msg);
         }
     }
@@ -1628,7 +1627,7 @@ sensor_msgs::ImagePtr AirsimROSWrapper::get_img_msg_from_response(const ImageRes
     sensor_msgs::ImagePtr img_msg_ptr = boost::make_shared<sensor_msgs::Image>();
     img_msg_ptr->data = img_response.image_data_uint8;
     img_msg_ptr->step = img_response.width * 3; // todo un-hardcode. image_width*num_bytes
-    img_msg_ptr->header.stamp = airsim_timestamp_to_ros(img_response.time_stamp);
+    img_msg_ptr->header.stamp = curr_ros_time;  // airsim_timestamp_to_ros(img_response.time_stamp);
     img_msg_ptr->header.frame_id = frame_id;
     img_msg_ptr->height = img_response.height;
     img_msg_ptr->width = img_response.width;
