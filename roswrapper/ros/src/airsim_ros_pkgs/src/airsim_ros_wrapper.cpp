@@ -269,6 +269,9 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
                         stereo_request_.push_back(ImageRequest(curr_camera_name, curr_image_type, false, false));
                         front_left_cam_info_pub_ = nh_private_.advertise<sensor_msgs::CameraInfo>(cam_image_topic + "/camera_info", 10);
                         front_left_camera_info_ = generate_cam_info(curr_camera_name, camera_setting, capture_setting);
+                        // depth
+                        sgm_.reset(new sgm_gpu::SgmGpu(nh_private_, capture_setting.width, capture_setting.height));
+                        sgm_depth_pub_ = image_transporter.advertise("sgm_depth", 1);
                     }
                     if(strcmp(curr_camera_name.c_str(), "front_right")==0)
                     {
@@ -1477,28 +1480,84 @@ void AirsimROSWrapper::img_response_RGBD_timer_cb(const ros::TimerEvent& event)
     }
 }
 
-void AirsimROSWrapper::img_response_stereo_timer_cb(const ros::TimerEvent& event)
+void AirsimROSWrapper::computeDepthImage(const cv::Mat &left_frame,
+                                         const cv::Mat &right_frame,
+                                         cv::Mat *const depth)
+{
+    int img_rows = left_frame.rows;
+    int img_cols = left_frame.cols;
+    // TODO(wxm) input stereo_baseline from setting.json
+    float stereo_baseline = 0.095;
+    cv::Mat disparity(img_rows, img_cols, CV_8UC1);
+    sgm_->computeDisparity(left_frame, right_frame, &disparity);
+    disparity.convertTo(disparity, CV_32FC1);
+
+    // compute depth from disparity
+    float f = (img_cols / 2.0) / std::tan((M_PI * (100.0 / 180.0)) / 2.0);
+    for (int r = 0; r < img_rows; ++r)
+    {
+        for (int c = 0; c < img_cols; ++c)
+        {
+            if (disparity.at<float>(r, c) == 0.0f)
+            {
+                depth->at<unsigned short>(r, c) = 0;
+            }
+            else if (disparity.at<float>(r, c) == 255.0f)
+            {
+                depth->at<unsigned short>(r, c) = 0;
+            }
+            else
+            {
+                depth->at<unsigned short>(r, c) = static_cast<unsigned short>(
+                    1000.0 * static_cast<float>(stereo_baseline) * f /
+                    disparity.at<float>(r, c));
+            }
+        }
+    }
+}
+
+void AirsimROSWrapper::img_response_stereo_timer_cb(const ros::TimerEvent &event)
 {
     try {
         const std::vector<ImageResponse>& img_response = airsim_client_images_.simGetImages(stereo_request_, airsim_img_request_vehicle_name_pair_vec_[0].second);
         if (img_response.size() == stereo_request_.size()) {
             ros::Time curr_ros_time = ros::Time::now();
+            cv::Mat left_rgb_img, right_rgb_img;
+            int img_rows, img_cols;
+            ros::Time timestamp;
             for (const auto& curr_img_response : img_response) {
                 if (strcmp(curr_img_response.camera_name.c_str(), "front_left")==0)
                 {
                     front_left_camera_info_.header.stamp =  airsim_timestamp_to_ros(curr_img_response.time_stamp);
                     front_left_cam_info_pub_.publish(front_left_camera_info_);
-                    front_left_pub_.publish(get_img_msg_from_response(curr_img_response,
-                                                                        curr_ros_time,
-                                                                        curr_img_response.camera_name + "_optical"));
+                    sensor_msgs::ImagePtr msg_ptr = get_img_msg_from_response(curr_img_response,
+                                                                              curr_ros_time,
+                                                                              curr_img_response.camera_name + "_optical");
+                    front_left_pub_.publish(msg_ptr);
+                    img_rows = front_left_camera_info_.height;
+                    img_cols = front_left_camera_info_.width;
+                    cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg_ptr, sensor_msgs::image_encodings::TYPE_8UC3);
+                    left_rgb_img = cv_ptr->image;
+                    timestamp = front_left_camera_info_.header.stamp;
                 }else{
                     front_right_camera_info_.header.stamp =  airsim_timestamp_to_ros(curr_img_response.time_stamp);
                     front_right_cam_info_pub_.publish(front_right_camera_info_);
-                    front_right_pub_.publish(get_img_msg_from_response(curr_img_response,
-                                                                        curr_ros_time,
-                                                                        curr_img_response.camera_name + "_optical"));
+                    sensor_msgs::ImagePtr msg_ptr = get_img_msg_from_response(curr_img_response,
+                                                                              curr_ros_time,
+                                                                              curr_img_response.camera_name + "_optical");
+                    front_right_pub_.publish(msg_ptr);
+                    cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg_ptr, sensor_msgs::image_encodings::TYPE_8UC3);
+                    right_rgb_img = cv_ptr->image;
                 }
             }
+            // compute disparity image
+            cv::Mat depth_uint16(img_rows, img_cols, CV_16UC1);
+            computeDepthImage(left_rgb_img, right_rgb_img, &depth_uint16);
+            sensor_msgs::ImagePtr sgm_depth_msg =
+                cv_bridge::CvImage(std_msgs::Header(), "mono16", depth_uint16)
+                    .toImageMsg();
+            sgm_depth_msg->header.stamp = timestamp;
+            sgm_depth_pub_.publish(sgm_depth_msg);
         }
     }
 

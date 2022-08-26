@@ -1,4 +1,6 @@
 #include "common/common_utils/StrictMode.hpp"
+#include "sgm_gpu/sgm_gpu.h"
+
 STRICT_MODE_OFF //todo what does this do?
 #ifndef RPCLIB_MSGPACK
 #define RPCLIB_MSGPACK clmdep_msgpack
@@ -255,6 +257,7 @@ private:
         /// Status
         // bool in_air_; // todo change to "status" and keep track of this
     };
+    void computeDepthImage(const cv::Mat &left_frame, const cv::Mat &right_frame, cv::Mat *const depth);
 
     /// ROS timer callbacks
     void img_response_timer_cb(const ros::TimerEvent& event); // update images from airsim_client_ every nth sec
@@ -432,11 +435,14 @@ private:
     std::vector<image_transport::Publisher> image_pub_vec_;
     std::vector<ros::Publisher> cam_info_pub_vec_;
 
+    std::shared_ptr<sgm_gpu::SgmGpu> sgm_;
+
     image_transport::Publisher front_right_pub_;
     image_transport::Publisher front_left_pub_;
     image_transport::Publisher front_pub_;
     image_transport::Publisher front_depth_pub_;
     image_transport::Publisher bottom_pub_;
+    image_transport::Publisher sgm_depth_pub_;
 
     ros::Publisher bottom_cam_info_pub_;
     ros::Publisher front_cam_info_pub_;

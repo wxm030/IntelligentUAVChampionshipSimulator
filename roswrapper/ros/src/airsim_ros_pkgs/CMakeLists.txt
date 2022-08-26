@@ -7,6 +7,7 @@ set(AIRSIM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../../../)
 add_subdirectory("${AIRSIM_ROOT}/cmake/rpclib_wrapper" rpclib_wrapper)
 add_subdirectory("${AIRSIM_ROOT}/cmake/AirLib" AirLib)
 add_subdirectory("${AIRSIM_ROOT}/cmake/MavLinkCom" MavLinkCom)
+add_subdirectory("${AIRSIM_ROOT}/cmake/SGM" SGM)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -Wstrict-null-sentinel -Wno-unused")
@@ -91,6 +92,7 @@ include_directories(
   ${RPC_LIB_INCLUDES}
   ${AIRSIM_ROOT}/MavLinkCom/include
   ${AIRSIM_ROOT}/MavLinkCom/common_utils
+  ${AIRSIM_ROOT}/SGM/include
   ${OpenCV_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
 )
@@ -104,10 +106,10 @@ target_link_libraries(airsim_settings_parser ${catkin_LIBRARIES} AirLib)
 
 add_library(airsim_ros src/airsim_ros_wrapper.cpp)
 add_dependencies(airsim_ros ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(airsim_ros ${catkin_LIBRARIES} ${OpenCV_LIBS} yaml-cpp AirLib airsim_settings_parser)
+target_link_libraries(airsim_ros ${catkin_LIBRARIES} ${OpenCV_LIBS} yaml-cpp AirLib sgm_gpu airsim_settings_parser)
 
 add_executable(airsim_node src/airsim_node.cpp)
-target_link_libraries(airsim_node airsim_ros ${catkin_LIBRARIES} AirLib)
+target_link_libraries(airsim_node airsim_ros ${catkin_LIBRARIES} AirLib sgm_gpu)
 
 # add_executable(pd_position_controller_simple_node src/pd_position_controller_simple_node.cpp)
 # target_link_libraries(pd_position_controller_simple_node pd_position_controller_simple airsim_ros ${catkin_LIBRARIES} AirLib)
