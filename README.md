@@ -1,5 +1,11 @@
 # __自主无人机竞速模拟器使用说明__  
 1. ## 更新说明
+### 0830: 
+   1. 相机配置文件中的x, y, z 数值 乘以二， 纠正因提及缩放导致的误差；
+   2. FOV由100度改为90度；
+   3. roswrapper移除规则外的传感器（气压计，gps，磁力计等），仅保留imu；保留真值作为调试用；移除tf；
+   ---
+### 0818: 
    1. RGBD以及双目的同步问题已解决；
    2. 帧率优化，简化了自主飞行赛项的场景；
    3. 削弱了图像噪声；
@@ -63,7 +69,7 @@
    6. ## LINUX 端启动 roswrapper
     >`cd /path/to/IntelligentUAVChampionshipSimulator/roswrapper` 
     ---
-    使用脚本启动模拟器，参数为你的模拟器ip地址
+    使用脚本启动roswrapper，参数为你的模拟器ip地址
     >`./simulator.sh 127.0.0.1`
     ---
 
@@ -114,7 +120,7 @@
    6. ## A LINUX 端启动 roswrapper
     >`cd /path/to/IntelligentUAVChampionshipSimulator/roswrapper` 
     ---
-    使用脚本启动模拟器，参数为你的模拟器ip地址
+    使用脚本启动roswrapper，参数为你的模拟器ip地址
     >`./simulator.sh 127.0.0.1`
     ---
 
@@ -165,7 +171,7 @@
    6. ## 启动 roswrapper
     >`cd /path/to/IntelligentUAVChampionshipSimulator/roswrapper` 
     ---
-    使用脚本启动模拟器，参数为你的模拟器ip地址
+    使用脚本启动roswrapper，参数为你的模拟器ip地址
     >`./simulator.sh 127.0.0.1`
     ---
 
